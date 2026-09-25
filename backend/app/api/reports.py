@@ -72,7 +72,7 @@ def get_reports(
         """
     )
 
-    # Get report data + latest ML prediction, if one exists
+    # Get report data + latest ML prediction, if available
     data_query = text(
         f"""
         SELECT
