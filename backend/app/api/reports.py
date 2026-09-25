@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 from backend.app.db.database import engine
 
+
 router = APIRouter(
     prefix="/api",
     tags=["Reports"],
@@ -28,11 +29,13 @@ def get_reports(
     site: str | None = None,
 ):
     filters = []
+
     params = {
         "limit": page_size,
         "offset": (page - 1) * page_size,
     }
 
+    # Search filter
     if search:
         filters.append(
             """
@@ -46,6 +49,7 @@ def get_reports(
         )
         params["search"] = f"%{search}%"
 
+    # Site filter
     if site and site != "all":
         filters.append("s.name = :site")
         params["site"] = site
@@ -55,7 +59,9 @@ def get_reports(
     if filters:
         where_clause = "WHERE " + " AND ".join(filters)
 
-    count_query = text(f"""
+    # Count matching reports
+    count_query = text(
+        f"""
         SELECT COUNT(*)
         FROM reports r
         LEFT JOIN sites s
@@ -63,9 +69,12 @@ def get_reports(
         LEFT JOIN activities a
             ON r.activity_id = a.id
         {where_clause}
-    """)
+        """
+    )
 
-    data_query = text(f"""
+    # Get report data + latest ML prediction, if one exists
+    data_query = text(
+        f"""
         SELECT
             r.report_id,
             r.report_text,
@@ -73,18 +82,54 @@ def get_reports(
             r.report_type,
             r.severity,
             r.facility,
+
             s.name AS site,
-            a.name AS activity
+            a.name AS activity,
+
+            p.sif_potential,
+            p.confidence,
+            p.life_saving_rule,
+            p.hazard,
+            p.barrier_failure,
+            p.precursor_pattern,
+            p.model_version
+
         FROM reports r
+
         LEFT JOIN sites s
             ON r.site_id = s.id
+
         LEFT JOIN activities a
             ON r.activity_id = a.id
+
+        LEFT JOIN LATERAL (
+            SELECT
+                predictions.sif_potential,
+                predictions.confidence,
+                predictions.life_saving_rule,
+                predictions.hazard,
+                predictions.barrier_failure,
+                predictions.precursor_pattern,
+                predictions.model_version
+
+            FROM predictions
+
+            WHERE predictions.report_id = r.id
+
+            ORDER BY predictions.created_at DESC
+
+            LIMIT 1
+        ) p
+            ON TRUE
+
         {where_clause}
+
         ORDER BY r.created_at DESC
+
         LIMIT :limit
         OFFSET :offset
-    """)
+        """
+    )
 
     with engine.connect() as connection:
         total = connection.execute(
@@ -105,40 +150,24 @@ def get_reports(
         "page": page,
         "page_size": page_size,
     }
-    query = text("""
-        SELECT
-            r.report_id,
-            r.report_text,
-            r.report_date,
-            r.report_type,
-            r.severity,
-            r.facility,
-            s.name AS site,
-            a.name AS activity
-        FROM reports r
-        LEFT JOIN sites s
-            ON r.site_id = s.id
-        LEFT JOIN activities a
-            ON r.activity_id = a.id
-        ORDER BY r.created_at DESC
-    """)
-
-    with engine.connect() as connection:
-        result = connection.execute(query)
-        reports = result.mappings().all()
-
-    return reports
 
 
 @router.post("/reports")
 def create_report(report: ReportCreate):
     if not report.report_id.strip():
-        raise HTTPException(status_code=400, detail="report_id is required")
+        raise HTTPException(
+            status_code=400,
+            detail="report_id is required",
+        )
 
     if not report.report_text.strip():
-        raise HTTPException(status_code=400, detail="report_text is required")
+        raise HTTPException(
+            status_code=400,
+            detail="report_text is required",
+        )
 
-    insert_query = text("""
+    insert_query = text(
+        """
         INSERT INTO reports (
             report_id,
             report_text,
@@ -160,7 +189,8 @@ def create_report(report: ReportCreate):
             :facility
         )
         RETURNING report_id
-    """)
+        """
+    )
 
     try:
         with engine.begin() as connection:
