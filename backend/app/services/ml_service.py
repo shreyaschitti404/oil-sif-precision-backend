@@ -3,7 +3,12 @@ def analyze_report(text: str):
         raise ValueError("Report text is required.")
 
     return {
-        "status": "ml_not_connected",
-        "message": "ML model will be connected here.",
-        "text": text,
+        "sif_potential": False,
+        "confidence": 0.0,
+        "life_saving_rule": None,
+        "activity": None,
+        "hazard": None,
+        "barrier_failure": None,
+        "precursor_pattern": None,
+        "model_version": "not-connected",
     }
