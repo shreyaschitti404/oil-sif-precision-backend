@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.reports import router as reports_router
 from backend.app.api.upload import router as upload_router
 from backend.app.api.dashboard import router as dashboard_router
+from backend.app.api.analysis import router as analysis_router
 
 
 app = FastAPI(
@@ -24,6 +25,7 @@ app.add_middleware(
 app.include_router(reports_router)
 app.include_router(upload_router)
 app.include_router(dashboard_router)
+app.include_router(analysis_router)
 
 
 @app.get("/api/health")
