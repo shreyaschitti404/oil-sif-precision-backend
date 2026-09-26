@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
+from backend.app.schemas import AnalyzeRequest, AnalysisResult
 from backend.app.services.ml_service import analyze_report
 
 
@@ -10,12 +10,7 @@ router = APIRouter(
 )
 
 
-class AnalyzeRequest(BaseModel):
-    text: str
-    report_id: str | None = None
-
-
-@router.post("/analyze")
+@router.post("/analyze", response_model=AnalysisResult)
 def analyze(request: AnalyzeRequest):
     try:
         result = analyze_report(request.text)
